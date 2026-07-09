@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36616.10
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "02.AdjustBeam", "02.Template02\02.AdjustBeam.csproj", "{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Debug|x64.ActiveCfg = Debug|x64
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Debug|x64.Build.0 = Debug|x64
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Release|x64.ActiveCfg = Release|x64
+		{8CEDBDC0-2BD3-457C-BF22-BF464EA0C8C6}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D0E14ADF-193B-420D-8D7A-95D73D1E924E}
+	EndGlobalSection
+EndGlobal
