@@ -26,63 +26,50 @@ namespace DVTools
     public class NodeModel
     {
         public Document doc { get; set; }
-        public Element column { get; set; }
-        public List<BeamColumnModel> beams { get; set; } = new List<BeamColumnModel>();
-        public List<BeamWallModel> beamWalls { get; set; } = new List<BeamWallModel>();
-        public Plane plane { get; set; }
+        public List<ColumnBeamModel> columnBeams { get; set; } = new List<ColumnBeamModel>();
+        public List<WallBeamModel> wallBeams { get; set; } = new List<WallBeamModel>();
         public bool isBeamWall { get; set; }
         public bool isBeamPillar { get; set; }
         public bool isBeamBeamInline { get; set; }
         public bool isBeamBeamPerpendicular { get; set; }
-        public XYZ columnDirection { get; set; }
         public DataView dataView { get; set; }
-        public int isbeam { get; set; }
-        public double distance { get; set; }
-        public NodeModel(Document Doc, Element Support, List<Element> Beams, DataView DataView)
+
+        public NodeModel(Document Doc, Element support, List<Element> beams, DataView DataView)
         {
             doc = Doc;
-            column = Support;
+
             dataView = DataView;
 
-            foreach (Element beam in Beams)
+            foreach (Element beam in beams)
             {
-                if (IsColumn(Support))
+                if (IsColumn(support))
                 {
-                    //MessageBox.Show(1.ToString());
-                    column = Support;
-
-                    var beamColumn = new BeamColumnModel(doc, column, beam);
-
-                    if (beamColumn.isIntersection)
+                    //column = Support;
+                    var columnBeam = new ColumnBeamModel(doc, support, beam);
+                    if (columnBeam.isIntersection)
                     {
-                        beams.Add(beamColumn);
+                        columnBeams.Add(columnBeam);
                     }
                 }
                 else
                 {
-                    //MessageBox.Show(2.ToString());
-                    var beamWall = new BeamWallModel(doc, column, beam);
-                    if (beamWall.isIntersection)
+                    //wall = Support;
+                    var wallBeam = new WallBeamModel(doc, support, beam);
+                    if (wallBeam.isIntersection)
                     {
-                        beamWalls.Add(beamWall);
+                        wallBeams.Add(wallBeam);
                     }
                 }
-
             }
-           
-            if (beamWalls.Count > 0)
+
+            if (wallBeams.Count > 0)
             {
-
-                for (int i = 0; i < beamWalls.Count; i++)
+                for (int i = 0; i < wallBeams.Count; i++)
                 {
+                    XYZ vec = wallBeams[i].vec;
+                    XYZ intersectionPoint = wallBeams[i].intersectionPoint;
 
-                    XYZ intersectionPoint = beamWalls[i].intersectionPoint;
-
-                    var IsPer = Utils.IsPerpendicular(beamWalls[i].columnDirection, beamWalls[i].beamModel.line.Direction);
-
-                    //MessageBox.Show(beamWalls.Count.ToString());
-
-                    if (IsPer)
+                    if (wallBeams[i].IsWallBeamPer)
                     {
                         using (Transaction trans = new Transaction(Doc, "Offset FamilyInstance"))
                         {
@@ -91,15 +78,30 @@ namespace DVTools
                             option.SetFailuresPreprocessor(new DeleteWarningSuper());
                             trans.SetFailureHandlingOptions(option);
 
-                            if (beamWalls[i].isStartPoint)
+                            XYZ startPoint = wallBeams[i].beamModel.startPoint;
+                            XYZ endPoint = wallBeams[i].beamModel.endPoint;
+                            XYZ newPoint = intersectionPoint + vec * (dataView.beamWall / 304.8 - wallBeams[i].wallModel.width / 2);
+                            if (wallBeams[i].beamModel.beamT)
                             {
-                                XYZ vec = (beamWalls[i].beamModel.endPoint - intersectionPoint).Normalize();
-                                CreateNewCurve(beamWalls[i].beam, intersectionPoint + vec * (dataView.beamWall / 304.8 - beamWalls[i].wallModel.width/2), beamWalls[i].beamModel.endPoint);
+                                if (wallBeams[i].isStartPoint)
+                                {
+                                    CreateNewCurve(wallBeams[i].beam, endPoint, newPoint);
+                                }
+                                else
+                                {
+                                    CreateNewCurve(wallBeams[i].beam, newPoint, startPoint);
+                                }
                             }
-                            else
+                            else                         
                             {
-                                XYZ vec = (beamWalls[i].beamModel.startPoint - intersectionPoint).Normalize();
-                                CreateNewCurve(beamWalls[i].beam, beamWalls[i].beamModel.startPoint, intersectionPoint + vec * (dataView.beamWall / 304.8 - beamWalls[i].wallModel.width / 2));
+                                if (wallBeams[i].isStartPoint)
+                                {
+                                    CreateNewCurve(wallBeams[i].beam, newPoint, endPoint);
+                                }
+                                else
+                                {
+                                    CreateNewCurve(wallBeams[i].beam, startPoint, newPoint);
+                                }
                             }
 
                             doc.Regenerate();
@@ -107,65 +109,89 @@ namespace DVTools
                         }
                     }
 
-
                 }
             }
-            if (beams.Count > 0)
+            if (columnBeams.Count > 0)
             {
-                CheckBeam(doc, column, beams);
+                TypeBeams(doc, support, columnBeams);
 
-                for (int i = 0; i < beams.Count; i++)
+                for (int i = 0; i < columnBeams.Count; i++)
                 {
-                    XYZ normal = beams[i].columnDirection.CrossProduct(XYZ.BasisZ).Normalize();
-                    plane = Plane.CreateByNormalAndOrigin(normal, beams[0].columnModel.locationPointBot);
+                    XYZ vec = columnBeams[i].vec;
+                    XYZ intersectionPoint = columnBeams[i].intersectionPoint;
 
-                    XYZ intersectionPoint = Utils.IntersectLinePlane(beams[i].beamModel.line, plane);
-                  
-                    var IsPer = Utils.IsPerpendicular(beams[i].columnDirection, beams[i].beamModel.line.Direction);
-                   
-                    //MessageBox.Show(IsPer.ToString());
-
-
-                    if (IsPer)
+                    if (columnBeams[i].IsColumnBeamPer)
                     {
-                        using (Transaction trans = new Transaction(Doc, "Offset FamilyInstance"))
+                        using (Transaction trans = new Transaction(Doc, "Create New Curve"))
                         {
                             trans.Start();
                             FailureHandlingOptions option = trans.GetFailureHandlingOptions();
                             option.SetFailuresPreprocessor(new DeleteWarningSuper());
                             trans.SetFailureHandlingOptions(option);
 
-                            if (isBeamBeamInline)
+                            XYZ startPoint = columnBeams[i].beamModel.startPoint;
+                            XYZ endPoint = columnBeams[i].beamModel.endPoint;
+
+                            if (columnBeams[i].beamModel.beamT)
                             {
-                                if (beams[i].isStartPoint)
+                                if (isBeamPillar)
                                 {
-                                    XYZ vec = (beams[i].beamModel.endPoint - intersectionPoint).Normalize();
+                                    XYZ newPoint = intersectionPoint + vec * (dataView.beamPillar / 304.8 - columnBeams[i].width / 2);
 
-                                    CreateNewCurve(beams[i].beam, beams[i].beamModel.endPoint, intersectionPoint + vec * 0.5 * dataView.beamBeamInline / 304.8);
+                                    if (columnBeams[i].isStartPoint)
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, endPoint, newPoint);
+                                    }
+                                    else
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, newPoint, startPoint);
+                                    }
+
                                 }
-                                else
+                                else if (isBeamBeamInline)
                                 {
-                                    XYZ vec = (beams[i].beamModel.startPoint - intersectionPoint).Normalize();
-
-                                    CreateNewCurve(beams[i].beam, intersectionPoint + vec * 0.5 * dataView.beamBeamInline / 304.8, beams[i].beamModel.startPoint);
+                                    XYZ newPoint = intersectionPoint + vec * 0.5 * dataView.beamBeamInline / 304.8;
+                                    if (columnBeams[i].isStartPoint)
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, endPoint, newPoint);
+                                    }
+                                    else
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, newPoint, startPoint);
+                                    }
                                 }
                             }
-                            else if (isBeamPillar)
+                            else
                             {
-                                if (beams[i].isStartPoint)
+                                if (isBeamPillar)
                                 {
+                                    XYZ newPoint = intersectionPoint + vec * (dataView.beamPillar / 304.8 - columnBeams[i].width / 2);
 
-                                    XYZ vec = (beams[i].beamModel.endPoint - intersectionPoint).Normalize();
+                                    if (columnBeams[i].isStartPoint)
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, newPoint, endPoint);
+                                    }
+                                    else
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, startPoint, newPoint);
+                                    }
 
-                                    CreateNewCurve(beams[i].beam, beams[i].beamModel.endPoint, intersectionPoint + vec * (dataView.beamPillar / 304.8 - distance / 2));
                                 }
-                                else
+                                else if (isBeamBeamInline)
                                 {
-                                    XYZ vec = (beams[i].beamModel.startPoint - intersectionPoint).Normalize();
-
-                                    CreateNewCurve(beams[i].beam, intersectionPoint + vec * (dataView.beamPillar / 304.8 - distance / 2), beams[i].beamModel.startPoint);
+                                    XYZ newPoint = intersectionPoint + vec * 0.5 * dataView.beamBeamInline / 304.8;
+                                    if (columnBeams[i].isStartPoint)
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, newPoint, endPoint);
+                                    }
+                                    else
+                                    {
+                                        CreateNewCurve(columnBeams[i].beam, startPoint, newPoint);
+                                    }
                                 }
                             }
+
+                            
 
                             doc.Regenerate();
                             trans.Commit();
@@ -173,25 +199,14 @@ namespace DVTools
                     }
                     else
                     {
-                        XYZ vec;
-                        if (beams[i].isStartPoint)
-                        {
-                            vec = (beams[i].beamModel.endPoint - intersectionPoint).Normalize();
-                        }
-                        else
-                        {
-                            vec = (beams[i].beamModel.startPoint - intersectionPoint).Normalize();
-                        }
+                        double angle = columnBeams[i].columnDirection.Normalize().AngleTo(vec);
 
-                        double angle = beams[i].columnDirection.Normalize().AngleTo(vec);
+                        double w = columnBeams[i].beamModel.B_Width + 200 / 304.8;
 
-
-                        double w = beams[i].beamModel.B_Width + beams[i].beamModel.B_WidthLedge1 + beams[i].beamModel.B_WidthLedge2;
-
-                        XYZ p1 = intersectionPoint + vec * (0.5 * dataView.beamBeamInline / Math.Sin(angle)) / 304.8 + beams[i].columnDirection.Normalize() * w / 2;
-                        XYZ p2 = intersectionPoint + vec * (0.5 * dataView.beamBeamInline / Math.Sin(angle)) / 304.8 - beams[i].columnDirection.Normalize() * w / 2;
-                        XYZ p3 = p1 - vec * 400 / 304.8;
-                        XYZ p4 = p2 - vec * 400 / 304.8;
+                        XYZ p1 = intersectionPoint + vec * (0.5 * dataView.beamBeamInline / Math.Sin(angle)) / 304.8 + columnBeams[i].columnDirection.Normalize() * w / 2;
+                        XYZ p2 = intersectionPoint + vec * (0.5 * dataView.beamBeamInline / Math.Sin(angle)) / 304.8 - columnBeams[i].columnDirection.Normalize() * w / 2;
+                        XYZ p3 = p1 - vec * 500 / 304.8;
+                        XYZ p4 = p2 - vec * 500 / 304.8;
 
                         CurveArray profile = new CurveArray();
 
@@ -207,14 +222,12 @@ namespace DVTools
                             option.SetFailuresPreprocessor(new DeleteWarningSuper());
                             trans.SetFailureHandlingOptions(option);
 
-                            Opening opening = doc.Create.NewOpening(beams[i].beam, profile, eRefFace.CenterZ);
+                            Opening opening = doc.Create.NewOpening(columnBeams[i].beam, profile, eRefFace.CenterZ);
 
                             doc.Regenerate();
                             trans.Commit();
                         }
                     }
-
-
 
                 }
             }
@@ -226,58 +239,23 @@ namespace DVTools
             locationCurve.Curve = newLine;
         }
 
-        public bool CheckBeam(Document doc, Element column, List<BeamColumnModel> beams)
+        public bool TypeBeams(Document doc, Element column, List<ColumnBeamModel> beams)
         {
             if (beams.Count == 1)
             {
-
-                columnDirection = beams[0].columnDirection.Normalize();
-
-                XYZ normal = columnDirection.CrossProduct(XYZ.BasisZ).Normalize();
-
-                Solid s = Utils.GetSolidElement(column);
-                List<PlanarFace> faces = Utils.GetPlanrFacePerpendicular(s, normal);
-
-                // MessageBox.Show(faces.Count.ToString());
-                if (faces.Count == 2)
-                {
-                    XYZ p1 = faces[0].Origin;
-                    XYZ p2 = faces[1].Origin;
-
-                    distance = Math.Abs((p2 - p1).DotProduct(normal.Normalize()));
-
-                    //TaskDialog.Show("Distance", (distance*304.8).ToString());
-                }
-
                 return isBeamPillar = true;
             }
             else if (beams.Count == 2)
             {
-                if (beams[0].anpha < beams[1].anpha)
-                {
-                    columnDirection = beams[0].columnDirection;
-                }
-                else
-                {
-                    columnDirection = beams[1].columnDirection;
-                }
                 return isBeamBeamInline = true;
             }
             else if (beams.Count == 3)
             {
-                //if (beams[0].anpha < beams[1].anpha)
-                //{
-                //    columnDirection = beams[0].columnDirection;
-                //}
-                //else
-                //{
-                //    columnDirection = beams[1].columnDirection;
-                //}
                 return isBeamBeamInline = true;
             }
             else
             {
-                // MessageBox.Show(2.ToString());
+
                 return false;
             }
         }

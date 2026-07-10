@@ -107,6 +107,19 @@
                         CommandParameter="{Binding ElementName=MainWindow}">
                 </Button>
             </DockPanel>
+            <Grid Grid.Row="1"  Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition  Height="40"/>
+                </Grid.RowDefinitions>
+                <ProgressBar Name="ProgressWindow" 
+                 Height="30"
+                 Style="{DynamicResource ProgressBarStyle}" Margin="0,5,100,0" />
+                <TextBlock Grid.ColumnSpan="1"
+               Text="{Binding Percent, StringFormat={}{0:0}%}"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center" />
+
+            </Grid>
         </Grid>
 
 

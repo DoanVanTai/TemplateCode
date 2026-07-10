@@ -15,19 +15,19 @@ using System.Xml.Linq;
 
 namespace DVTools
 {
-    public class SelectedElement
+    public class SelectedElements
     {
         public UIDocument UiDoc;
         public Document Doc;
         public List<Element> elements = new List<Element>();
         public List<Element> beams = new List<Element>();
         public List<Element> supports = new List<Element>();
-        public SelectedElement(UIDocument uiDoc)
+        public SelectedElements(UIDocument uiDoc)
         {
             UiDoc = uiDoc;
             Doc = UiDoc.Document;
 
-            BeamAndColumnSelectionFilter filter = new BeamAndColumnSelectionFilter();
+            ElementsSelectionFilter filter = new ElementsSelectionFilter();
             while (true)
             {
                 try
@@ -44,14 +44,14 @@ namespace DVTools
                         continue;
                     }
 
-                    //// ❌ Trường hợp chọn < 2 tường
-                    //if (refs.Count < 3)
-                    //{
-                    //    TaskDialogResult result = ReportUtils.ShowDialogWaning("Error Select Elements", "Please Select At Least 3 Elements.", "Do You Want To Continue ? ");
-                    //    if (result == TaskDialogResult.No || result == TaskDialogResult.Cancel)
-                    //        throw new InvalidOperationException("Error Select Elements");
-                    //    continue;
-                    //}
+                    // ❌ Trường hợp chọn < 2 elements
+                    if (refs.Count < 2)
+                    {
+                        TaskDialogResult result = ReportUtils.ShowDialogWaning("Error Select Elements", "Please Select At Least 2 Elements.", "Do You Want To Continue ? ");
+                        if (result == TaskDialogResult.No || result == TaskDialogResult.Cancel)
+                            throw new InvalidOperationException("Error Select Elements");
+                        continue;
+                    }
 
                     // ✅ Trường hợp chọn đủ
                     foreach (Reference re in refs)
@@ -65,25 +65,19 @@ namespace DVTools
                 {
                     throw new InvalidOperationException();
                 }
-
             }
 
-            //if (elements.Count > 3)
-            //{
-
-
             for (int i = 0; i < elements.Count; i++)
+            {
+                if (IsStructuralBeam(elements[i]))
                 {
-                    if (IsStructuralBeam(elements[i]))
-                    {
-                        beams.Add(elements[i]);
-                    }
-                    else if (IsStructuralSupport(elements[i]))
-                    {
-                        supports.Add(elements[i]);
-                    }
+                    beams.Add(elements[i]);
                 }
-            //}
+                else if (IsStructuralSupport(elements[i]))
+                {
+                    supports.Add(elements[i]);
+                }
+            }
         }
 
         public bool IsStructuralSupport(Element element)

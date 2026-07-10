@@ -90,8 +90,8 @@
     <Reference Include="System.Management" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AdjustBeam\Model\BeamWallModel.cs" />
-    <Compile Include="AdjustBeam\Model\BeamColumnModel.cs" />
+    <Compile Include="AdjustBeam\Model\WallBeamModel.cs" />
+    <Compile Include="AdjustBeam\Model\ColumnBeamModel.cs" />
     <Compile Include="AdjustBeam\Model\BeamModel.cs" />
     <Compile Include="AdjustBeam\Model\WallModel.cs" />
     <Compile Include="AdjustBeam\Model\NodeModel.cs" />
@@ -104,7 +104,7 @@
     <Compile Include="AdjustBeam\View\AdjustBeamWindow.xaml.cs">
       <DependentUpon>AdjustBeamWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Library\BeamAndColumnSelectionFilter.cs" />
+    <Compile Include="Library\ElementsSelectionFilter.cs" />
     <Compile Include="Library\DeleteWarningSuper.cs" />
     <Compile Include="Library\FamilyUtils.cs" />
     <Compile Include="Library\ReportUtils.cs" />

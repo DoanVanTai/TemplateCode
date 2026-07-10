@@ -36,17 +36,9 @@ namespace QHTools
             Curve curve = (wall.Location as LocationCurve).Curve;
             startPoint = curve.GetEndPoint(0);
             endPoint = curve.GetEndPoint(1);
-
             direction1 = (startPoint - endPoint).Normalize();
             direction2 = direction1.CrossProduct(XYZ.BasisZ).Normalize();
-            // Plane normal
-
-           
-
             XYZ normal = direction2.Normalize();
-
-            //MessageBox.Show(normal.ToString());
-
             plane = Plane.CreateByNormalAndOrigin(normal, startPoint);
 
         }

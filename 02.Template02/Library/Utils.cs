@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using System.Windows.Media;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Transform = Autodesk.Revit.DB.Transform;
 #endregion
 
 namespace DVTools
@@ -37,60 +38,6 @@ namespace DVTools
             return Math.Abs(cosTheta) >= cosTol;
 
         }
-        public static bool IsVectorParallel1(XYZ v1, XYZ v2, double tol = 1e-9)
-        {
-            if (v1 == null || v2 == null) return false;
-            if (v1.GetLength() < tol || v2.GetLength() < tol) return false;
-            double crossLen = v1.CrossProduct(v2).GetLength();
-            return crossLen <= tol;
-        }
-        public static XYZ GetIntersectionPointOfTwoBeams(Document doc, FamilyInstance beam1, FamilyInstance beam2)
-        {
-            // =========================
-            // 1️⃣ Lấy curve của 2 beam
-            // =========================
-            LocationCurve lc1 = beam1.Location as LocationCurve;
-            LocationCurve lc2 = beam2.Location as LocationCurve;
-
-            if (lc1 == null || lc2 == null)
-                return null;
-
-            Curve c1 = lc1.Curve;
-            Curve c2 = lc2.Curve;
-
-            // Beam axis luôn là Line
-            if (!(c1 is Line) || !(c2 is Line))
-                return null;
-
-            Line l1 = c1 as Line;
-            Line l2 = c2 as Line;
-
-            // =========================
-            // 2️⃣ Tạo line vô hạn
-            // =========================
-            Line line1 = Line.CreateUnbound(
-                l1.GetEndPoint(0),
-                (l1.GetEndPoint(1) - l1.GetEndPoint(0)).Normalize());
-
-            Line line2 = Line.CreateUnbound(
-                l2.GetEndPoint(0),
-                (l2.GetEndPoint(1) - l2.GetEndPoint(0)).Normalize());
-
-            // =========================
-            // 3️⃣ Tạo plane chứa line1
-            // =========================
-            XYZ dir1 = line1.Direction;
-            XYZ origin = line1.Origin;
-
-            XYZ dir2 = dir1.CrossProduct(XYZ.BasisZ).Normalize();
-            XYZ normal = dir1.CrossProduct(dir2).Normalize();
-            Plane plane = Plane.CreateByNormalAndOrigin(normal, origin);
-            
-            // =========================
-            // 4️⃣ Giao điểm plane & line2
-            // =========================
-            return IntersectLinePlane(line2, plane);
-        }
         public static XYZ IntersectLinePlane( Line line,  Plane plane)
         {
             XYZ intersectionPoint = null;
@@ -110,64 +57,6 @@ namespace DVTools
             intersectionPoint = p0 + t * v;
 
             return intersectionPoint;
-        }
-
-        public static XYZ GetIntersectionBeamAndColumn(Document doc, FamilyInstance beam)
-        {
-            View3D view3D = Get3DView(doc);
-            var curveBeam = (beam.Location as LocationCurve).Curve;
-            var staPoint = curveBeam.GetEndPoint(0);
-            var endPoint = curveBeam.GetEndPoint(1);
-
-            XYZ direction = null;
-            XYZ topPoint = null;
-
-            if (staPoint.Z > endPoint.Z)
-            {
-                direction = (staPoint - endPoint).Normalize();
-                topPoint = endPoint;
-            }
-            else
-            {
-                direction = (endPoint - staPoint).Normalize();
-                topPoint = staPoint;
-            }
-
-            List<ElementId> excluse = new List<ElementId>();
-            excluse.Add(beam.Id);
-
-            ExclusionFilter BeamFilter = new ExclusionFilter(excluse);
-            ElementCategoryFilter Col_filter = new ElementCategoryFilter(BuiltInCategory.OST_StructuralColumns);
-
-            List<ElementFilter> filters = new List<ElementFilter>();
-            filters.Add(Col_filter);
-            filters.Add(BeamFilter);
-
-            LogicalOrFilter filter = new LogicalOrFilter(filters);
-            ReferenceIntersector Col_Face_Ref_IntSector = new ReferenceIntersector(filter, FindReferenceTarget.Face, view3D);
-
-            IList<ReferenceWithContext> Col_Face_RWC_St = Col_Face_Ref_IntSector.Find(topPoint, direction);
-            List<ReferenceWithContext> filteredRefs_St = Col_Face_RWC_St.OrderBy(a => a.Proximity).ToList();
-
-            XYZ intersecPoint = filteredRefs_St[0].GetReference().GlobalPoint;
-
-            return intersecPoint;
-        }
-
-        public static View3D Get3DView(Document doc)
-        {
-            View3D view3D = new FilteredElementCollector(doc)
-                .OfClass(typeof(View3D))
-                .Cast<View3D>()
-                .Where(v => v.IsTemplate == false)
-                .First();
-
-            return view3D;
-        }
-
-        public static Line GetLocationCurveColumn(XYZ orgin)
-        {
-            return Line.CreateUnbound(orgin, new XYZ(0, 0, 1));
         }
         public static Plane GetPlaneBeam(Element beam)
         {
@@ -266,5 +155,106 @@ namespace DVTools
                 .OrderBy(f => f.Origin.DotProduct(dir))
                 .ToList();
         }
+
+        public static bool IsBeamIntersectSupport(Element support, Element beam)
+        {
+            // 2. Lấy Solid gốc của Dầm
+            Options geoOptions = new Options { DetailLevel = ViewDetailLevel.Fine };
+            Solid beamSolid = GetElementSolid(beam, geoOptions);
+
+            if (beamSolid == null)
+            {
+                TaskDialog.Show("Lỗi", "Không lấy được hình học của Dầm.");
+            }
+
+            // 3. Tạo Solid mở rộng CHÍNH XÁC theo hình dạng cột (Ví dụ mở rộng lên 300mm)
+            double extensionInFeet = 300.0 / 304.8;
+            Solid extendedColumnSolid = CreateExactExtendedSolidFromColumn(support, extensionInFeet, geoOptions);
+
+            if (extendedColumnSolid == null)
+            {
+                TaskDialog.Show("Lỗi", "Không thể tạo khối Solid mở rộng cho Cột.");
+            }
+
+            // 4. Tính toán phần giao bằng Boolean Operation
+            bool isIntersect = false;
+            try
+            {
+                Solid intersectionSolid = BooleanOperationsUtils.ExecuteBooleanOperation(
+                    extendedColumnSolid, beamSolid, BooleanOperationsType.Intersect);
+
+                if (intersectionSolid != null && intersectionSolid.Volume > 0.00001)
+                {
+                    isIntersect = true;
+                }
+            }
+            catch
+            {
+                // Dự phòng nếu lỗi hình học phức tạp
+                isIntersect = false;
+            }
+
+            // 5. Kết quả
+            if (isIntersect)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+        }
+
+        // Hàm tạo Solid mở rộng CHÍNH XÁC từ hình dáng thực tế của Cột
+        private static Solid CreateExactExtendedSolidFromColumn(Element column, double heightExtension, Options opts)
+        {
+            // 1. Lấy Solid gốc, thực tế của cột (Giữ nguyên hình tròn, chữ L, góc xoay...)
+            Solid originalSolid = GetElementSolid(column, opts);
+            if (originalSolid == null) return null;
+
+            try
+            {
+                // 2. Tạo một phép dịch chuyển (Transform) theo trục Z thẳng đứng lên trên
+                Transform transform = Transform.CreateTranslation(new XYZ(0, 0, heightExtension));
+
+                // 3. Biến đổi khối Solid gốc dịch lên phía trên theo khoảng cách chỉ định
+                Solid movedSolid = SolidUtils.CreateTransformed(originalSolid, transform);
+
+                // 4. Hợp nhất (Union) Khối gốc và Khối đã dịch chuyển lại với nhau
+                // Kết quả sẽ là một khối Solid kéo dài từ đáy cột cũ lên đến đỉnh cột mới một cách chính xác tuyệt đối
+                Solid exactExtendedSolid = BooleanOperationsUtils.ExecuteBooleanOperation(
+                    originalSolid, movedSolid, BooleanOperationsType.Union);
+
+                return exactExtendedSolid;
+            }
+            catch
+            {
+                // Dự phòng nếu lỗi hình học quá phức tạp, trả về solid gốc
+                return originalSolid;
+            }
+        }
+
+        // Hàm phụ tách lấy Solid từ Element (xử lý cả trường hợp GeometryInstance)
+        private static Solid GetElementSolid(Element elem, Options opts)
+        {
+            GeometryElement geoElem = elem.get_Geometry(opts);
+            if (geoElem == null) return null;
+
+            foreach (GeometryObject geoObj in geoElem)
+            {
+                if (geoObj is Solid solid && solid.Volume > 5) return solid;
+
+                if (geoObj is GeometryInstance geoInst)
+                {
+                    foreach (GeometryObject instObj in geoInst.GetInstanceGeometry())
+                    {
+                        if (instObj is Solid instSolid && instSolid.Volume > 0) return instSolid;
+                    }
+                }
+            }
+            return null;
+        }
+
     }
 }

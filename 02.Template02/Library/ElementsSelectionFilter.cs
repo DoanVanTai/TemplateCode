@@ -6,7 +6,7 @@ using Autodesk.Revit.UI.Selection;
 
 namespace DVTools
 {
-    public class BeamAndColumnSelectionFilter : ISelectionFilter
+    public class ElementsSelectionFilter : ISelectionFilter
     {
         public bool AllowElement(Element elem)
         {

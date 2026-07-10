@@ -15,8 +15,10 @@ using System.Runtime.InteropServices;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
+using System.Windows.Threading;
 using System.Xml.Linq;
-
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using ProgressBar = System.Windows.Controls.ProgressBar;
 
 #endregion
 
@@ -48,37 +50,29 @@ namespace DVTools
             Doc = UiDoc.Document;
 
             dataView = new DataView(Doc);
-
+            SelectedElements selectedElements = new SelectedElements(UiDoc);
             OKCommand = new RelayCommand<AdjustBeamWindow>((p) => { return true; }, (p) =>
             {
-                p.DialogResult = true;
-                p.Close();
-
-                SelectedElement selectedElement = new SelectedElement(UiDoc);
-
                 List<NodeModel> nodeModels = new List<NodeModel>();
 
-                //MessageBox.Show(selectedElement.columns.Count.ToString());
-              
-                foreach (Element support in selectedElement.supports)
+                p.ProgressWindow.Maximum = selectedElements.supports.Count;
+
+                foreach (Element support in selectedElements.supports)
                 {
-                    NodeModel nodeModel = new NodeModel(Doc, support, selectedElement.beams, dataView);
-
-                    if (nodeModel.beams.Count > 0)
-                    {
-                        nodeModels.Add(nodeModel);
-                    }
+                    NodeModel nodeModel = new NodeModel(Doc, support, selectedElements.beams, dataView);
+                    SetValue(p.ProgressWindow, 1);
                 }
-
-             
-                //foreach (NodeModel node in nodeModels)
-                //{
-                    
-                //}
+                p.DialogResult = true;
+                p.Close();
 
             });
 
         }
-        
+        private void SetValue(ProgressBar ProgressWindow, int n)
+        {
+            value += n;
+            Percent = value / ProgressWindow.Maximum * 100;
+            ProgressWindow.Dispatcher.Invoke(() => ProgressWindow.Value = value, DispatcherPriority.Background);
+        }
     }
 }

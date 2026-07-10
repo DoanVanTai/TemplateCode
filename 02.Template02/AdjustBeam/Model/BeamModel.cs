@@ -21,7 +21,7 @@ namespace DVTools
     public class BeamModel
     {
         public Element beam { get; set; }
-        public string typeName { get; set; }
+        public bool beamT{ get; set; }
         public double B_Height { get; set; }
         public double B_HeightLedge1 { get; set; }
         public double B_HeightLedge2 { get; set; }
@@ -36,20 +36,26 @@ namespace DVTools
         public BeamModel(Document doc, Element e)
         {
             beam = e;
-            typeName = e.Name;
-
+           
             Element eType = doc.GetElement(e.GetTypeId());
             var para = eType.LookupParameter("Family Name");
             if (para != null)
             {
                 var familyName = para.AsString();
-                if (!GetFamilyName.BeamT.Contains(familyName))
+                if (!GetFamilyName.Beam.Contains(familyName))
                 {
                     ReportUtils.ShowDialogError("ERROR", "KHÔNG ĐÚNG FAMILY BEAM ", "CHỌN ĐÚNG FAMILY BEAM");
                     throw new InvalidOperationException("KHÔNG ĐÚNG FAMILY BEAM");
                 }
+
+                beamT = false;
+                if (familyName == GetFamilyName.BeamT)
+                {
+                    beamT = true;
+                }
             }
 
+              
             //B_Height = eType.LookupParameter(GetParameterBeamT.B_Height).AsDouble();
             //B_HeightLedge1 = eType.LookupParameter(GetParameterBeamT.B_HeightLedge1).AsDouble();
             //B_HeightLedge2 = eType.LookupParameter(GetParameterBeamT.B_HeightLedge2).AsDouble();
@@ -57,11 +63,8 @@ namespace DVTools
             //B_WidthLedge1 = eType.LookupParameter(GetParameterBeamT.B_WidthLedge1).AsDouble();
             //B_WidthLedge2 = eType.LookupParameter(GetParameterBeamT.B_WidthLedge2).AsDouble();
 
-
             B_Width = eType.LookupParameter(GetParameterBeamT.B_Width).AsDouble();
-            B_WidthLedge1 = 200 / 304.8;
-            B_WidthLedge2 = 200 / 304.8;
-
+           
             LocationCurve locCurve = beam.Location as LocationCurve;
             if (locCurve == null) return;
 
