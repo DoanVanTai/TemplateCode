@@ -25,8 +25,8 @@ namespace DVTools
 
             // code
 
-            //try
-            //{
+            try
+            {
                 using (TransactionGroup transG = new TransactionGroup(doc))
                 {
                     transG.Start("");
@@ -44,11 +44,11 @@ namespace DVTools
                     transG.Assimilate();
                     return Result.Succeeded;
                 }
-            //}
-            //catch
-            //{
-            //    return Result.Cancelled;
-            //}
+            }
+            catch
+            {
+                return Result.Cancelled;
+            }
         }
 
     }
